@@ -13,6 +13,25 @@
   const ler = (k, padrao) => { try { const v = localStorage.getItem(k); return v === null ? padrao : v; } catch (e) { return padrao; } };
   const gravar = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { /* sem localStorage: vale só agora */ } };
 
+  // Servidor TrackSave remoto (celular, túnel https; decisão de 19/11/2026, a confirmar pelo Lucas): o link de
+  // `./tracksave.sh link` traz #ts=<url do túnel>&k=<chave>. É a primeira coisa que a tela faz: tira o fragmento da
+  // barra (não fica no histórico, num print nem num link copiado) e, se for válido (https ou loopback), guarda url+chave
+  // só neste navegador. A chave não vai para o DOM, o console nem URL de pedido: só para o cabeçalho, no plugin.
+  const TS_REMOTO = 'vbmx-friends-tracksave-remoto';   // JSON {url, chave}
+  {
+    const doLink = window.VbMxTrackSave ? VbMxTrackSave.lerRemoto(window.location.hash) : null;
+    if (doLink) {
+      try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) { /* sem history: segue */ }
+      if (doLink.ok) gravar(TS_REMOTO, JSON.stringify({ url: doLink.url, chave: doLink.chave }));
+    }
+  }
+  const remotoGravado = () => {
+    let v = null;
+    try { v = VbMxTrackSave.validarRemoto(JSON.parse(ler(TS_REMOTO, 'null'))); } catch (e) { v = null; }
+    return v && v.ok ? v : null;
+  };
+  const esquecerRemoto = () => { try { localStorage.removeItem(TS_REMOTO); } catch (e) { /* sem localStorage: nada guardado */ } };
+
   // Cores da onda na paleta noturna (opção C, modos/bauhaus.css): já tocado azul claro, o que falta cinza, a marca da
   // mixagem em amarelo e a cabeça em papel; traços translúcidos e só a metade de cima (a capa aparece por trás). VbMxFriendsOnda.CORES continua sendo o padrão do módulo.
   const CORES_ONDA = { tocado: 'rgba(110, 155, 230, 0.6)', resto: 'rgba(125, 120, 105, 0.5)', mix: '#f2b90f', cabeca: '#f2ebdd', fundoMix: 'rgba(242, 185, 15, 0.16)', feitoMix: 'rgba(242, 185, 15, 0.34)' };
@@ -437,7 +456,9 @@
     $('fr-ts').hidden = !visivel;
     if (!visivel) return;
     $('ts-form').hidden = !e.noAr;
-    $('ts-dica').hidden = e.fase !== 'fora';
+    $('ts-dica').hidden = e.fase !== 'fora' || e.remoto;   // a dica do comando local não vale para o servidor remoto
+    $('ts-remoto').hidden = !e.remoto;
+    if (e.remoto) { $('ts-remoto-onde').textContent = t('ts.remoto-onde', { host: tsHost }); $('ts-tentar').hidden = e.fase !== 'fora'; $('ts-esquecer').disabled = e.ocupado; }
     $('ts-link').disabled = e.ocupado; $('ts-baixar').disabled = e.ocupado;
     $('ts-baixar').textContent = t(e.fase === 'baixando' ? 'ts.baixando' : e.fase === 'analisando' ? 'ts.analisando-botao' : 'ts.trazer');
     const pr = $('ts-progresso');
@@ -458,16 +479,33 @@
   const tsPedido = VbMxTrackSave.pedidoNaUrl(window.location.search);
   if (tsPedido !== null) gravar(TS_CHAVE, tsPedido);
   const onde = VbMxTrackSave.liberar(VbMxTrackSave.ondeEstou(window.location), ler(TS_CHAVE, '0') === '1');
+  let tsHost = '';   // o host do túnel (só o host: a chave nunca vai para o DOM)
   if (onde !== 'fora') {
-    ts = VbMxTrackSave.criarFluxo({
-      cliente: VbMxTrackSave.criar({}), onde, aoEstado: desenharTrackSave,
-      painel: { adicionar: (p) => painel.adicionar(p), faixas: () => painel.faixas(), ocupado: () => !!VbMxPainel.pastasParaFiltro().ocupado },
-    });
+    // o servidor remoto só vale na publicada (o TrackSave remoto só aceita a Origin do Pages); em 127.0.0.1:8770 é o local
+    const montarTrackSave = () => {
+      const remoto = onde === 'publicada' ? remotoGravado() : null;
+      tsHost = remoto ? new URL(remoto.url).host : '';
+      const fluxo = VbMxTrackSave.criarFluxo({
+        cliente: VbMxTrackSave.criar(remoto ? { remoto } : {}), onde, remoto: !!remoto,
+        aoEstado: (e) => { if (ts === fluxo) desenharTrackSave(e); },   // um fluxo trocado pelo "Esquecer" não desenha mais
+        painel: { adicionar: (p) => painel.adicionar(p), faixas: () => painel.faixas(), ocupado: () => !!VbMxPainel.pastasParaFiltro().ocupado },
+      });
+      ts = fluxo;
+      fluxo.iniciar();
+    };
     $('ts-form').onsubmit = (ev) => { ev.preventDefault(); ts.trazer($('ts-link').value); };
     $('ts-sondar').onclick = () => ts.sondar();
+    $('ts-tentar').onclick = () => ts.sondar();
+    // "Esquecer servidor": apaga url+chave deste navegador e volta ao comportamento sem remoto (sem recarregar: a música segue)
+    $('ts-esquecer').onclick = () => {
+      if (ts && ts.estado().ocupado) return;
+      esquecerRemoto();
+      $('fr-ts').hidden = true; $('ts-remoto').hidden = true; $('ts-status').textContent = '';
+      montarTrackSave();
+    };
     $('ts-capa').checked = ler(PESQUISA_CHAVE, '1') === '1';
     $('ts-capa').onchange = (ev) => { gravar(PESQUISA_CHAVE, ev.target.checked ? '1' : '0'); capas.refazer(); capasSeguir.refazer(); };
-    ts.iniciar();
+    montarTrackSave();
   }
 
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => desenharOnda(ctl.estado())).observe($('agora-onda'));

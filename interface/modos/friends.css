@@ -23,9 +23,9 @@ body { overflow-x: clip; }
 /* ---------- a grade (assimétrica: 7:5 a partir de 768 px) ---------- */
 .friends { display: grid; gap: var(--e-3); padding: var(--e-3); max-width: 90rem; margin: 0 auto; width: 100%;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "trilho" "agora" "seguir" "controles" "aviso" "ts" "listas"; }
+  grid-template-areas: "trilho" "agora" "seguir" "controles" "aviso" "listas"; }
 .fr-trilho { grid-area: trilho; } .fr-agora { grid-area: agora; } .fr-seguir { grid-area: seguir; }
-.fr-controles { grid-area: controles; } .fr-aviso { grid-area: aviso; } .fr-tracksave { grid-area: ts; } .fr-listas { grid-area: listas; }
+.fr-controles { grid-area: controles; } .fr-aviso { grid-area: aviso; } .fr-listas { grid-area: listas; }
 
 /* a linha do set: já tocou (círculos vazios) · agora (círculo azul) · a seguir (triângulo) · fim */
 .fr-trilho { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 48px; }
@@ -149,10 +149,15 @@ body { overflow-x: clip; }
 .fr-selo.fr-fraco { color: var(--cinza-claro); background: none; border: var(--fio) dashed var(--cinza-claro); }
 .fr-marcada .fr-nome { color: var(--papel); font-weight: 700; }
 
-/* ---------- plugin TrackSave (modos/friends-tracksave.js) ---------- */
-.fr-tracksave { padding-top: var(--e-2); border-top: var(--traco) solid var(--papel); min-width: 0; }
+/* ---------- plugin TrackSave (modos/friends-tracksave.js) ----------
+   No topo da página, logo abaixo do cabeçalho e fora da grade (pedido do Lucas, 19/11/2026: no celular é a primeira
+   coisa). Até 34rem campo e botão ocupam a largura toda, um embaixo do outro, com 16 px no campo (o iOS não dá zoom). */
+.fr-tracksave { padding: var(--e-2) var(--e-3); border-bottom: var(--traco) solid var(--papel); min-width: 0; }
 .fr-ts-linha { display: flex; flex-wrap: wrap; gap: var(--e-1); margin-top: var(--e-1); }
-.fr-ts-linha input { flex: 1 1 220px; min-width: 0; min-height: 48px; font: inherit; font-size: var(--t-sm); color: var(--fg); background: none; border: var(--traco) solid var(--papel); border-radius: 0; padding: 0 var(--e-1); }
+.fr-ts-linha input { flex: 1 1 100%; width: 100%; box-sizing: border-box; min-width: 0; min-height: 48px; font: inherit; font-size: max(16px, var(--t-sm)); color: var(--fg); background: none; border: var(--traco) solid var(--papel); border-radius: 0; padding: 0 var(--e-1); }
+.fr-ts-linha .fr-botao { flex: 1 1 100%; }
+@media (min-width: 34rem) { .fr-ts-linha input { flex: 1 1 220px; width: auto; } .fr-ts-linha .fr-botao { flex: 0 0 auto; } }
+.fr-ts-remoto { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e-1); overflow-wrap: anywhere; }
 .fr-tracksave progress { display: block; width: 100%; height: 8px; margin-top: var(--e-1); accent-color: var(--vermelho); }
 .fr-ts-status { margin: var(--e-1) 0 0; font-size: var(--t-sm); color: var(--fg-2); min-height: 1em; overflow-wrap: anywhere; }
 .fr-ts-status.fr-ts-erro { color: var(--papel); border-left: var(--traco) solid var(--vermelho); padding-left: var(--e-1); }
@@ -172,18 +177,19 @@ body { overflow-x: clip; }
 .fr-ts-capa { margin-top: var(--e-1); }
 .fr-ts-dica code { font-family: var(--fonte-dados); color: var(--fg); background: var(--bg-3); border-radius: 0; padding: 1px 6px; overflow-wrap: anywhere; }
 .fr-ts-dica .botao-pasta { display: inline-flex; align-items: center; }
+.fr-ts-dica .botao-pasta[hidden] { display: none; }
 .fr-tracksave[hidden], .fr-ts-capa[hidden], .fr-ts-linha[hidden], .fr-ts-dica[hidden], .fr-tracksave progress[hidden] { display: none; }
 
 /* ---------- faixas de largura ---------- */
 @media (min-width: 768px) {
   .friends { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: start;
-    grid-template-areas: "trilho trilho" "agora seguir" "controles seguir" "aviso aviso" "ts ts" "listas listas"; }
+    grid-template-areas: "trilho trilho" "agora seguir" "controles seguir" "aviso aviso" "listas listas"; }
   .fr-seguir { border-top: 0; padding-top: 0; padding-left: var(--e-3); border-left: var(--traco) solid var(--papel); }
   .fr-listas { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
 }
 @media (min-width: 1280px) {
   .friends { grid-template-columns: minmax(0, 6fr) minmax(0, 4fr) minmax(0, 4fr);
-    grid-template-areas: "trilho trilho trilho" "agora seguir listas" "controles seguir listas" "aviso aviso listas" "ts ts listas"; }
+    grid-template-areas: "trilho trilho trilho" "agora seguir listas" "controles seguir listas" "aviso aviso listas"; }
   .fr-listas { grid-template-columns: minmax(0, 1fr); }
   .fr-lista ol { max-height: 22rem; }
 }

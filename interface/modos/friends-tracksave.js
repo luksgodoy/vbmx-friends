@@ -14,7 +14,13 @@
 //    servidor fora ou recusando lá é invisível (fase 'oculto'), sem dica nem erro;
 //  - servidor desligado não é erro: `sondar` devolve {noAr: false} e nunca lança;
 //  - o link do usuário só viaja no corpo do POST /baixar, para 127.0.0.1: não vai para log, armazenamento local,
-//    URL nem terceiro.
+//    URL nem terceiro;
+//  - servidor remoto (celular, túnel https do ngrok até o TrackSave do Mac; decisão de 19/11/2026, a confirmar pelo
+//    Lucas): o link de `./tracksave.sh link` traz `#ts=<url do túnel>&k=<chave>` no fragmento. `lerRemoto` só aceita
+//    url https (ou http de loopback) e chave no formato do token_urlsafe(32); com remoto, TODO pedido (saúde, baixar,
+//    andamento, faixa, áudio) vai para essa base com `Authorization: Bearer <chave>` e `ngrok-skip-browser-warning: 1`.
+//    A chave só existe no cabeçalho: nunca na URL do pedido, no estado devolvido, em mensagem ou no console. Guardar
+//    no localStorage e tirar o fragmento da barra é da tela (friends-tela.js); este arquivo não toca o navegador.
 // Teste: node interface/testar-friends-tracksave.js (servidor TrackSave falso em Node; nada é baixado de verdade).
 //
 // VbMxTrackSave:
@@ -22,8 +28,11 @@
 //   pedidoNaUrl(search) → '1' | '0' | null  (o ?tracksave= da URL)
 //   liberar(onde, ligadoNestaMaquina) → 'publicada' só se ligado; senão 'fora'
 //   validarLink(texto) → {ok: true, url} | {ok: false, mensagem}
-//   criar({fetch?, base?, espera?, intervaloMs?, limiteSondaMs?, limiteEsperaMs?, agora?}) → {sondar(), baixar(link, aoAndar?)}
-//   criarFluxo({cliente, painel: {adicionar(pasta), faixas(), ocupado()}, onde, aoEstado?, espera?}) →
+//   lerRemoto(hash) → null (sem ts/k no fragmento) | {ok: true, url, chave} | {ok: false, motivo}
+//   validarRemoto({url, chave}) → {ok: true, url, chave} | {ok: false, motivo}   (o que veio do localStorage passa por aqui)
+//   criar({fetch?, base?, remoto?: {url, chave}, espera?, intervaloMs?, limiteSondaMs?, limiteEsperaMs?, agora?}) →
+//     {sondar(), baixar(link, aoAndar?), base, remoto}
+//   criarFluxo({cliente, painel: {adicionar(pasta), faixas(), ocupado()}, onde, remoto?, aoEstado?, espera?}) →
 //     {iniciar(), sondar(), trazer(link), vestir(faixas), estado()}
 //   aplicarMeta(faixas, metaPorCaminho) → faixas com titulo/artista/ano do TrackSave
 (function (raiz, fabrica) {
@@ -42,6 +51,7 @@
   const RX_ID = /^[0-9a-f]{16}$/;             // o id que o servidor gera; qualquer outra coisa não vai para a URL
   const RX_VIDEO = /^[A-Za-z0-9_-]{11}$/;
   const HOSTS_LOCAIS = ['127.0.0.1', 'localhost', '[::1]', '::1'];
+  const RX_CHAVE = /^[A-Za-z0-9_-]{43,128}$/;  // secrets.token_urlsafe(32) do TrackSave (remoto._RE_CHAVE)
   // texto pelo idioma (interface/js/i18n.js): no navegador é o VbMxI18n da página; no Node, o módulo, que cai em pt-BR.
   // A mensagem é montada quando o evento acontece: a já exibida fica no idioma antigo até o evento seguinte.
   const I18N = raiz.VbMxI18n || (typeof require === 'function' ? require('../js/i18n.js') : null);
@@ -63,6 +73,29 @@
   }
   // Na versão publicada o plugin só existe na máquina que o ligou; nas demais é como se fosse outro site.
   const liberar = (onde, ligado) => (onde === 'publicada' && !ligado ? 'fora' : onde);
+
+  // O servidor remoto: só https (o Pages é https e não chama http, e a chave não pode viajar em claro) ou http de
+  // loopback (teste nesta máquina). Sem usuário/senha, query nem fragmento na base. A mensagem nunca leva a chave.
+  function validarRemoto(r) {
+    const o = r || {};
+    const chave = String(o.chave == null ? '' : o.chave);
+    if (!RX_CHAVE.test(chave)) return { ok: false, motivo: 'chave-invalida' };
+    let u;
+    try { u = new URL(String(o.url == null ? '' : o.url)); } catch (e) { return { ok: false, motivo: 'url-invalida' }; }
+    const loop = HOSTS_LOCAIS.includes(u.hostname.toLowerCase());
+    if (!(u.protocol === 'https:' || (u.protocol === 'http:' && loop))) return { ok: false, motivo: 'url-insegura' };
+    if (u.username || u.password || u.search || u.hash) return { ok: false, motivo: 'url-invalida' };
+    return { ok: true, url: (u.origin + u.pathname).replace(/\/+$/, ''), chave };
+  }
+  // `#ts=<url codificada>&k=<chave>` (remoto.link_celular do TrackSave). null = o fragmento não fala de servidor.
+  function lerRemoto(hash) {
+    const h = String(hash || '').replace(/^#/, '');
+    if (!h) return null;
+    let q;
+    try { q = new URLSearchParams(h); } catch (e) { return null; }
+    if (!q.has('ts') && !q.has('k')) return null;
+    return validarRemoto({ url: q.get('ts'), chave: q.get('k') });
+  }
 
   // Só vídeo do YouTube (o que este campo promete). O servidor classifica de novo; aqui é para não gastar um pedido
   // com o que já se sabe que não serve, e para a mensagem sair na hora.
@@ -104,21 +137,34 @@
     const d = deps || {};
     const f = d.fetch || (typeof raiz.fetch === 'function' ? raiz.fetch.bind(raiz) : null);
     if (!f) throw new TypeError('VbMxTrackSave.criar: sem fetch');
-    const base = String(d.base || BASE).replace(/\/+$/, '');
+    let rem = null;
+    if (d.remoto) {
+      const v = validarRemoto(d.remoto);
+      if (!v.ok) throw new TypeError('VbMxTrackSave.criar: servidor remoto inválido (' + v.motivo + ')');
+      rem = v;
+    }
+    const base = rem ? rem.url : String(d.base || BASE).replace(/\/+$/, '');
+    // a chave fica só nesta closure: vai no cabeçalho de todo pedido e em nenhum outro lugar
+    const cabecalhos = (extra) => Object.assign({}, extra || {}, rem ? { Authorization: 'Bearer ' + rem.chave, 'ngrok-skip-browser-warning': '1' } : {});
     const espera = typeof d.espera === 'function' ? d.espera : dormir;
     const agora = typeof d.agora === 'function' ? d.agora : () => Date.now();
     const intervaloMs = d.intervaloMs >= 0 ? d.intervaloMs : 1000;
-    const limiteSondaMs = d.limiteSondaMs > 0 ? d.limiteSondaMs : 1500;
+    const limiteSondaMs = d.limiteSondaMs > 0 ? d.limiteSondaMs : rem ? 6000 : 1500;   // o túnel tem a volta da internet
     const limiteEsperaMs = d.limiteEsperaMs > 0 ? d.limiteEsperaMs : 20 * 60 * 1000;
+    const msgFora = () => (rem ? tr('ts.remoto-fora') : tr('ts.servidor-fora', { comando: COMANDO }));
 
     async function pedir(caminho, init) {
-      try { return await f(base + caminho, Object.assign({ cache: 'no-store' }, init || {})); }
-      catch (e) { throw erro('servidor-fora', tr('ts.servidor-fora', { comando: COMANDO })); }
+      const i = Object.assign({ cache: 'no-store' }, init || {});
+      i.headers = cabecalhos(i.headers);
+      try { return await f(base + caminho, i); }
+      catch (e) { throw erro('servidor-fora', msgFora()); }
     }
     async function json(r) {
       let j = null;
       try { j = await r.json(); } catch (e) { j = null; }
       if (!r.ok) {
+        if (rem && r.status === 401) throw erro('nao-autorizado', tr('ts.remoto-recusou'));
+        if (rem && r.status === 429) throw erro('muitas-tentativas', tr('ts.remoto-limite'));
         const e = j && j.erro;
         throw erro((e && e.codigo) || 'http-' + r.status, (e && e.mensagem) || tr('ts.http', { status: r.status }));
       }
@@ -131,8 +177,10 @@
       const ac = typeof AbortController === 'function' ? new AbortController() : null;
       const prazo = ac ? setTimeout(() => ac.abort(), limiteSondaMs) : null;
       try {
-        const r = await f(base + '/saude', { cache: 'no-store', signal: ac ? ac.signal : undefined });
-        if (r.status === 403) return { noAr: false, motivo: 'recusado' };
+        const r = await f(base + '/saude', { cache: 'no-store', headers: cabecalhos(), signal: ac ? ac.signal : undefined });
+        if (r.status === 403 || r.status === 401) return { noAr: false, motivo: 'recusado' };
+        if (r.status === 429) return { noAr: false, motivo: 'limite' };
+        // a tela de aviso do ngrok grátis (HTML, sem CORS) ou outro serviço: cai aqui ou no catch, nunca lança
         const j = r.ok ? await r.json().catch(() => null) : null;
         if (j && j.servico === 'tracksave') return { noAr: true, versao: j.versao, ytDlp: j.yt_dlp || null, ffmpeg: j.ffmpeg !== false };
         return { noAr: false, motivo: 'outro-servico' };
@@ -172,7 +220,7 @@
         meta: { titulo: meta.titulo ? String(meta.titulo) : '', artista: meta.artista ? String(meta.artista) : '', ano: meta.ano || null, tracksave_id: id, video_id: idVideo(meta) } };
     }
 
-    return { sondar, baixar, base };
+    return { sondar, baixar, base, remoto: !!rem };
   }
 
   // O título e o artista do /faixa valem mais que os tirados do nome do arquivo (vídeo do YouTube não tem
@@ -203,17 +251,20 @@
     const metas = new Map();     // caminho → meta
     let st = { fase: 'oculto', noAr: false, ocupado: false, mensagem: '', fracao: null, codigo: '' };
     const mudar = (novo) => { st = Object.assign({}, st, novo); if (typeof d.aoEstado === 'function') d.aoEstado(estado()); };
-    const estado = () => Object.assign({ comando: COMANDO, origem: ORIGEM }, st);
+    const estado = () => Object.assign({ comando: COMANDO, origem: ORIGEM, remoto: !!d.remoto }, st);
 
     const sondavel = () => d.onde === 'local' || d.onde === 'publicada';
     async function sondar() {
       if (!sondavel() || st.ocupado) return estado();
-      const pub = d.onde === 'publicada';
+      // remoto: o Lucas configurou este servidor de propósito, então a seção aparece (procurando, fora, recusado) com
+      // o "tente de novo" e o "Esquecer servidor"; sem remoto, a publicada continua invisível sem servidor
+      const pub = d.onde === 'publicada' && !d.remoto;
       // na publicada nada aparece antes de o servidor responder: quem não o tem não vê nem o "procurando"
       mudar(pub ? { fase: st.noAr ? 'sondando' : 'oculto', mensagem: '', codigo: '' } : { fase: 'sondando', mensagem: '', codigo: '' });
       const r = await d.cliente.sondar();
       if (r.noAr) mudar({ fase: 'pronto', noAr: true, mensagem: '' });
       else if (pub) mudar({ fase: 'oculto', noAr: false, mensagem: '' });
+      else if (d.remoto) mudar({ fase: 'fora', noAr: false, mensagem: tr(r.motivo === 'recusado' ? 'ts.remoto-recusou' : r.motivo === 'limite' ? 'ts.remoto-limite' : 'ts.remoto-fora') });
       else if (r.motivo === 'recusado') mudar({ fase: 'origem', noAr: false, mensagem: tr('ts.recusou', { origem: ORIGEM }) });
       else mudar({ fase: 'fora', noAr: false, mensagem: '' });
       return estado();
@@ -255,5 +306,5 @@
     return { iniciar, sondar, trazer, estado, vestir: (faixas) => aplicarMeta(faixas, metas) };
   }
 
-  return { BASE, ORIGEM, ORIGEM_PUBLICADA, COMANDO, PASTA, TERMINAIS, ondeEstou, pedidoNaUrl, liberar, validarLink, idVideo, criar, criarFluxo, aplicarMeta };
+  return { BASE, ORIGEM, ORIGEM_PUBLICADA, COMANDO, PASTA, TERMINAIS, ondeEstou, pedidoNaUrl, liberar, validarLink, validarRemoto, lerRemoto, idVideo, criar, criarFluxo, aplicarMeta };
 });

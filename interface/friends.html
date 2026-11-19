@@ -16,6 +16,25 @@
   <div class="marca"><span class="forma circulo" aria-hidden="true"></span>VbMx <small data-i18n="friends.subtitulo">friends · shuffle que mixa sozinho</small></div>
   <div class="idioma" data-i18n-seletor data-i18n-aria="idioma.rotulo" aria-label="Idioma"></div>
 </header>
+<!-- Plugin TrackSave, no topo (pedido do Lucas, 19/11/2026): só aparece em http://127.0.0.1:8770 ou na publicada com
+     ?tracksave=1, e só quando o servidor (local ou o remoto do link #ts=&k=) responde — docs/contratos.md -->
+<section class="fr-tracksave" id="fr-ts" aria-label="Trazer do YouTube pelo TrackSave" data-i18n-aria="ts.aria" hidden>
+  <div class="rotulo"><span data-i18n="ts.titulo">Trazer do YouTube</span> <span class="mono">TrackSave</span></div>
+  <form class="fr-ts-linha" id="ts-form" hidden>
+    <input type="url" id="ts-link" placeholder="cole o link de um vídeo do YouTube" aria-label="Link do YouTube" data-i18n-placeholder="ts.link.placeholder" data-i18n-aria="ts.link.aria" autocomplete="off" spellcheck="false" maxlength="2048">
+    <button type="submit" class="fr-botao" id="ts-baixar" data-i18n="ts.trazer">Trazer</button>
+  </form>
+  <label class="fr-chave fr-ts-capa" id="ts-capa-linha" hidden><input type="checkbox" id="ts-capa" checked> <span data-i18n="ts.capa">pesquisar a capa na internet</span></label>
+  <p class="fr-ts-dica" id="ts-capa-nota" data-i18n="ts.privacidade" hidden>Sem capa no arquivo, o título e o artista das faixas que tocam e a seguir saem pela internet, via TrackSave, para achar a capa. Desligue acima para não enviar nada.</p>
+  <progress id="ts-progresso" max="1" hidden></progress>
+  <p class="fr-ts-status" id="ts-status" role="status"></p>
+  <p class="fr-ts-dica" id="ts-dica" hidden><span data-i18n="ts.dica.a">O servidor local do TrackSave não respondeu. Na pasta do TrackSave, rode</span> <code>./tracksave.sh servir</code> <span data-i18n="ts.dica.b">e</span>
+    <button type="button" class="botao-pasta" id="ts-sondar" data-i18n="ts.dica.c">tente de novo</button></p>
+  <!-- servidor remoto (celular, túnel): o host do túnel, nunca a chave -->
+  <p class="fr-ts-dica fr-ts-remoto" id="ts-remoto" hidden><span id="ts-remoto-onde"></span>
+    <button type="button" class="botao-pasta" id="ts-tentar" data-i18n="ts.dica.c" hidden>tente de novo</button>
+    <button type="button" class="botao-pasta" id="ts-esquecer" data-i18n="ts.esquecer">Esquecer servidor</button></p>
+</section>
 <section class="pastas" id="pastas" aria-label="Pastas da biblioteca" data-i18n-aria="friends.pastas.aria"></section>
 
 <!-- fundo em mosaico "Compasso" (modos/friends-fundo.js): decorativo, só nas calhas — todo bloco tem máscara opaca (friends.css) -->
@@ -82,21 +101,6 @@
   </section>
 
   <p class="fr-aviso" id="fr-aviso" role="status" hidden></p>
-
-  <!-- Plugin TrackSave: só aparece em http://127.0.0.1:8770 e quando o servidor local responde (docs/contratos.md) -->
-  <section class="fr-tracksave" id="fr-ts" aria-label="Trazer do YouTube pelo TrackSave" data-i18n-aria="ts.aria" hidden>
-    <div class="rotulo"><span data-i18n="ts.titulo">Trazer do YouTube</span> <span class="mono">TrackSave</span></div>
-    <form class="fr-ts-linha" id="ts-form" hidden>
-      <input type="url" id="ts-link" placeholder="cole o link de um vídeo do YouTube" aria-label="Link do YouTube" data-i18n-placeholder="ts.link.placeholder" data-i18n-aria="ts.link.aria" autocomplete="off" spellcheck="false" maxlength="2048">
-      <button type="submit" class="fr-botao" id="ts-baixar" data-i18n="ts.trazer">Trazer</button>
-    </form>
-    <label class="fr-chave fr-ts-capa" id="ts-capa-linha" hidden><input type="checkbox" id="ts-capa" checked> <span data-i18n="ts.capa">pesquisar a capa na internet</span></label>
-    <p class="fr-ts-dica" id="ts-capa-nota" data-i18n="ts.privacidade" hidden>Sem capa no arquivo, o título e o artista das faixas que tocam e a seguir saem pela internet, via TrackSave, para achar a capa. Desligue acima para não enviar nada.</p>
-    <progress id="ts-progresso" max="1" hidden></progress>
-    <p class="fr-ts-status" id="ts-status" role="status"></p>
-    <p class="fr-ts-dica" id="ts-dica" hidden><span data-i18n="ts.dica.a">O servidor local do TrackSave não respondeu. Na pasta do TrackSave, rode</span> <code>./tracksave.sh servir</code> <span data-i18n="ts.dica.b">e</span>
-      <button type="button" class="botao-pasta" id="ts-sondar" data-i18n="ts.dica.c">tente de novo</button></p>
-  </section>
 
   <section class="fr-listas">
     <div class="fr-lista fr-fila">
