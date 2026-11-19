@@ -6,15 +6,21 @@
 // e depois a faixa entra na fila de análise que a biblioteca já usa (VbMxPainel.adicionar → analisarFila).
 //
 // Regras que este arquivo guarda (docs/contratos.md § Friends: plugin TrackSave):
-//  - o servidor só aceita a Origin http://127.0.0.1:8770; fora dela (GitHub Pages, localhost:8770, outra porta)
-//    NENHUM pedido é feito — `ondeEstou` decide antes de qualquer fetch;
+//  - o servidor só aceita as Origins http://127.0.0.1:8770 e https://luksgodoy.github.io (o Friends publicado, uso
+//    pessoal do Lucas, decisão de 19/11/2026); fora delas (outro site, localhost:8770, outra porta) NENHUM pedido é
+//    feito — `ondeEstou` decide antes de qualquer fetch;
+//  - na versão publicada o plugin só sonda na máquina que o ligou (`?tracksave=1`, lembrado pela tela; `?tracksave=0`
+//    desliga): o navegador de um amigo nunca pede nada a 127.0.0.1 (nem vê o aviso de "rede local" do Chrome), e
+//    servidor fora ou recusando lá é invisível (fase 'oculto'), sem dica nem erro;
 //  - servidor desligado não é erro: `sondar` devolve {noAr: false} e nunca lança;
 //  - o link do usuário só viaja no corpo do POST /baixar, para 127.0.0.1: não vai para log, armazenamento local,
 //    URL nem terceiro.
 // Teste: node interface/testar-friends-tracksave.js (servidor TrackSave falso em Node; nada é baixado de verdade).
 //
 // VbMxTrackSave:
-//   ondeEstou(location) → 'local' | 'origem-errada' | 'fora'
+//   ondeEstou(location) → 'local' | 'publicada' | 'origem-errada' | 'fora'
+//   pedidoNaUrl(search) → '1' | '0' | null  (o ?tracksave= da URL)
+//   liberar(onde, ligadoNestaMaquina) → 'publicada' só se ligado; senão 'fora'
 //   validarLink(texto) → {ok: true, url} | {ok: false, mensagem}
 //   criar({fetch?, base?, espera?, intervaloMs?, limiteSondaMs?, limiteEsperaMs?, agora?}) → {sondar(), baixar(link, aoAndar?)}
 //   criarFluxo({cliente, painel: {adicionar(pasta), faixas(), ocupado()}, onde, aoEstado?, espera?}) →
@@ -28,7 +34,8 @@
   'use strict';
 
   const BASE = 'http://127.0.0.1:8771';
-  const ORIGEM = 'http://127.0.0.1:8770';     // a única que o servidor aceita (ORIGENS_PERMITIDAS do TrackSave)
+  const ORIGEM = 'http://127.0.0.1:8770';     // a local que o servidor aceita (ORIGENS_PERMITIDAS do TrackSave)
+  const ORIGEM_PUBLICADA = 'https://luksgodoy.github.io';   // o Friends no GitHub Pages; Origin exata, sem curinga
   const COMANDO = './tracksave.sh servir';
   const PASTA = 'TrackSave';                  // o nome da "pasta" em que as faixas trazidas aparecem na biblioteca
   const TERMINAIS = ['pronto', 'falhou', 'nao-casou'];
@@ -47,8 +54,15 @@
   function ondeEstou(loc) {
     const l = loc || {};
     if (l.origin === ORIGEM) return 'local';
+    if (l.origin === ORIGEM_PUBLICADA) return 'publicada';
     return HOSTS_LOCAIS.includes(String(l.hostname || '')) ? 'origem-errada' : 'fora';
   }
+  function pedidoNaUrl(search) {
+    const m = /[?&]tracksave=([01])(?:&|#|$)/.exec(String(search || ''));
+    return m ? m[1] : null;
+  }
+  // Na versão publicada o plugin só existe na máquina que o ligou; nas demais é como se fosse outro site.
+  const liberar = (onde, ligado) => (onde === 'publicada' && !ligado ? 'fora' : onde);
 
   // Só vídeo do YouTube (o que este campo promete). O servidor classifica de novo; aqui é para não gastar um pedido
   // com o que já se sabe que não serve, e para a mensagem sair na hora.
@@ -177,9 +191,10 @@
     });
   }
 
-  // A máquina de estados que a tela desenha. fase: 'oculto' (fora de localhost: nada aparece, nada é pedido) |
-  // 'origem' (em localhost mas não em 127.0.0.1:8770) | 'sondando' | 'fora' (servidor desligado: dica) | 'pronto' |
-  // 'baixando' | 'analisando' | 'feito' | 'erro'. Em 'feito' e 'erro' o campo continua valendo (noAr = true).
+  // A máquina de estados que a tela desenha. fase: 'oculto' (fora de localhost: nada aparece, nada é pedido; na
+  // publicada, também enquanto sonda e quando o servidor não atende) | 'origem' (em localhost mas não em
+  // 127.0.0.1:8770) | 'sondando' | 'fora' (servidor desligado: dica) | 'pronto' | 'baixando' | 'analisando' | 'feito' |
+  // 'erro'. Em 'feito' e 'erro' o campo continua valendo (noAr = true).
   function criarFluxo(deps) {
     const d = deps || {};
     if (!d.cliente || !d.painel) throw new TypeError('VbMxTrackSave.criarFluxo: cliente e painel são obrigatórios');
@@ -190,17 +205,21 @@
     const mudar = (novo) => { st = Object.assign({}, st, novo); if (typeof d.aoEstado === 'function') d.aoEstado(estado()); };
     const estado = () => Object.assign({ comando: COMANDO, origem: ORIGEM }, st);
 
+    const sondavel = () => d.onde === 'local' || d.onde === 'publicada';
     async function sondar() {
-      if (d.onde !== 'local' || st.ocupado) return estado();
-      mudar({ fase: 'sondando', mensagem: '', codigo: '' });
+      if (!sondavel() || st.ocupado) return estado();
+      const pub = d.onde === 'publicada';
+      // na publicada nada aparece antes de o servidor responder: quem não o tem não vê nem o "procurando"
+      mudar(pub ? { fase: st.noAr ? 'sondando' : 'oculto', mensagem: '', codigo: '' } : { fase: 'sondando', mensagem: '', codigo: '' });
       const r = await d.cliente.sondar();
       if (r.noAr) mudar({ fase: 'pronto', noAr: true, mensagem: '' });
+      else if (pub) mudar({ fase: 'oculto', noAr: false, mensagem: '' });
       else if (r.motivo === 'recusado') mudar({ fase: 'origem', noAr: false, mensagem: tr('ts.recusou', { origem: ORIGEM }) });
       else mudar({ fase: 'fora', noAr: false, mensagem: '' });
       return estado();
     }
     function iniciar() {
-      if (d.onde === 'local') return sondar();
+      if (sondavel()) return sondar();
       if (d.onde === 'origem-errada') mudar({ fase: 'origem', noAr: false, mensagem: tr('ts.so-origem', { origem: ORIGEM }) });
       else mudar({ fase: 'oculto', noAr: false });
       return Promise.resolve(estado());
@@ -236,5 +255,5 @@
     return { iniciar, sondar, trazer, estado, vestir: (faixas) => aplicarMeta(faixas, metas) };
   }
 
-  return { BASE, ORIGEM, COMANDO, PASTA, TERMINAIS, ondeEstou, validarLink, idVideo, criar, criarFluxo, aplicarMeta };
+  return { BASE, ORIGEM, ORIGEM_PUBLICADA, COMANDO, PASTA, TERMINAIS, ondeEstou, pedidoNaUrl, liberar, validarLink, idVideo, criar, criarFluxo, aplicarMeta };
 });

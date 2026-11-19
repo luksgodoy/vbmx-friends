@@ -21,6 +21,7 @@ const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/M
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const LOCAL = 'http://127.0.0.1:8770', TS = 'http://127.0.0.1:8771', PAGES = 'http://vbmx-publicado.test';
+const PUB = 'https://luksgodoy.github.io';   // o Friends publicado de verdade (6b): servido do disco pelo CDP, sem rede
 
 function wavSintetico(seg, taxa) {          // bumbo a 124 BPM sobre um zumbido baixo
   const n = seg * taxa, dados = Buffer.alloc(44 + n * 2), P = taxa * 60 / 124;
@@ -102,11 +103,11 @@ const TELA = `(() => {
   const b64 = (x) => Buffer.from(x).toString('base64');
   function responderTrackSave(req) {
     const u = new URL(req.url), cab = Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k.toLowerCase(), v]));
-    const cors = [{ name: 'Access-Control-Allow-Origin', value: LOCAL }, { name: 'Access-Control-Allow-Headers', value: 'Content-Type' }, { name: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' }];
+    const cors = [{ name: 'Access-Control-Allow-Origin', value: cab.origin === PUB ? PUB : LOCAL }, { name: 'Access-Control-Allow-Headers', value: 'Content-Type' }, { name: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' }, { name: 'Access-Control-Allow-Private-Network', value: 'true' }];
     const json = (st, o) => ({ responseCode: st, responseHeaders: cors.concat([{ name: 'Content-Type', value: 'application/json' }]), body: b64(JSON.stringify(o)) });
     if (req.method === 'OPTIONS') return { responseCode: 204, responseHeaders: cors };
     ts.pedidos.push(req.method + ' ' + u.pathname + u.search); ts.origens.add(cab.origin || '(sem Origin)');
-    if (cab.origin !== LOCAL) return json(403, { erro: { codigo: 'origem-invalida', mensagem: 'origem não permitida' } });
+    if (cab.origin !== LOCAL && cab.origin !== PUB) return json(403, { erro: { codigo: 'origem-invalida', mensagem: 'origem não permitida' } });
     if (u.pathname === '/saude') return json(200, { servico: 'tracksave', versao: 1, yt_dlp: 'falso', ffmpeg: true });
     if (u.pathname === '/baixar' && req.method === 'POST') {
       ts.corpos.push(req.postData || '');
@@ -151,6 +152,7 @@ const TELA = `(() => {
         let r;
         if (u.origin === TS) r = ts.noAr ? responderTrackSave(request) : null;
         else if (u.origin === LOCAL || u.origin === PAGES) r = responderDisco(u);
+        else if (u.origin === PUB) r = responderDisco(new URL(u.pathname.replace(/^\/vbmx-friends(?=\/)/, ''), LOCAL));
         else { outros.push({ url: request.url, corpo: request.postData || '' }); r = /fonts\.googleapis/.test(u.host) ? { responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'text/css' }], body: '' } : null; }
         (r ? c.enviar('Fetch.fulfillRequest', Object.assign({ requestId }, r), m.sessionId) : c.enviar('Fetch.failRequest', { requestId, errorReason: 'ConnectionRefused' }, m.sessionId)).catch(() => {});
       }
@@ -593,7 +595,39 @@ const TELA = `(() => {
     ok(ts.corpos.length >= 3 && ts.corpos.every((b) => Object.keys(JSON.parse(b)).join() === 'url'), `o corpo do POST é só {url} (${ts.corpos.length} envios)`);
     ok(ts.pedidos.every((x) => /^GET \/capa\?id=bbbbbbbbbbb$/.test(x) || !/youtu|aaaaaaaaaaa|bbbbbbbbbbb/.test(x)), 'nenhum link em URL de pedido ao TrackSave (só o id do vídeo, de volta, em /capa?id=)');
     ok(outros.every((o) => !/youtu|aaaaaaaaaaa|bbbbbbbbbbb/.test(o.url + o.corpo)), `nenhum link enviado a terceiros (${outros.length} pedidos a outros hosts: ${[...new Set(outros.map((o) => new URL(o.url).host))].join(', ') || 'nenhum'})`);
-    ok([...ts.origens].join() === LOCAL, `todo pedido ao TrackSave saiu com a Origin ${LOCAL} (${[...ts.origens].join()})`);
+    ok([...ts.origens].join() === LOCAL, `até aqui, todo pedido ao TrackSave saiu com a Origin ${LOCAL} (${[...ts.origens].join()})`);
+
+    // ---- 6b: o Friends publicado (https://luksgodoy.github.io/vbmx-friends/), uso pessoal do Lucas ----
+    {
+      const PAG = PUB + '/vbmx-friends/interface/friends.html', n0 = ts.pedidos.length;
+      let o = await abrir(PAG, PRONTA); await espera(1500);
+      t = await o.avaliar(TELA);
+      ok(!t.secao && ts.pedidos.length === n0, `publicada, sem ?tracksave=1: o plugin não aparece e nada vai a 127.0.0.1 (${ts.pedidos.length - n0} pedidos)`);
+      await o.fechar();
+      o = await abrir(PAG + '?tracksave=1', PRONTA);
+      ok(await ate(o.avaliar, `!document.getElementById('ts-form').hidden`, 5000), 'publicada com ?tracksave=1 e o servidor no ar: o campo do link aparece');
+      t = await o.avaliar(TELA);
+      ok(t.secao && t.campo && !t.dica && !t.erro && !(await o.avaliar(`!!document.getElementById('ts-capa-linha').offsetParent`)), 'publicada: só o campo, sem dica, sem erro e sem o interruptor da capa');
+      await trazer(o, LINK_A);
+      ok(await ate(o.avaliar, `/entrou na biblioteca/.test(document.getElementById('ts-status').textContent)`, 30000), 'publicada: o link termina com "entrou na biblioteca": ' + (await o.avaliar(TELA)).status);
+      t = await o.avaliar(TELA);
+      ok(t.biblioteca.length === 1 && /Primeira do Link/.test(t.biblioteca[0]) && /124 · 8A/.test(t.biblioteca[0]), `publicada: a faixa está na biblioteca com BPM e tom (${t.biblioteca[0]})`);
+      await o.avaliar(`document.getElementById('fr-tocar').click()`);
+      ok(await ate(o.avaliar, `/Primeira do Link/.test(document.getElementById('agora-titulo').textContent) && document.querySelector('[data-fase]').dataset.fase === 'tocando'`, 15000), 'publicada: a faixa baixada toca no Friends (' + (await o.avaliar(`document.getElementById('agora-titulo').textContent + ' / ' + document.querySelector('[data-fase]').dataset.fase`)) + ')');
+      ok([...ts.origens].includes(PUB), `os pedidos da publicada saíram com a Origin ${PUB}`);
+      await o.fechar();
+      ts.noAr = false;
+      const n1 = ts.pedidos.length;
+      o = await abrir(PAG, PRONTA); await espera(2500);
+      t = await o.avaliar(TELA);
+      ok(!t.secao && !t.erro && !t.status, `publicada, ligada (lembrada) mas com o servidor desligado: nada aparece, nem dica nem erro (seção ${t.secao}, status "${t.status}")`);
+      await o.fechar();
+      ts.noAr = true;
+      o = await abrir(PAG + '?tracksave=0', PRONTA); await espera(1500);
+      t = await o.avaliar(TELA);
+      ok(!t.secao && ts.pedidos.length === n1, `?tracksave=0 desliga: sem seção e sem pedido (${ts.pedidos.length - n1})`);
+      await o.fechar();
+    }
 
     // ---- 8: as três páginas sem erro de script ----
     for (const rel of ['interface/classico.html', 'interface/index.html']) { const o = await abrir(`${LOCAL}/${rel}`, 'document.readyState === "complete"'); await espera(800); await o.fechar(); }

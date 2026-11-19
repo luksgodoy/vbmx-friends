@@ -447,12 +447,18 @@
     s.textContent = e.fase === 'sondando' ? t('ts.procurando') : e.mensagem || '';   // textContent: mensagem do servidor nunca vira HTML
     s.classList.toggle('fr-ts-erro', e.fase === 'erro' || (e.fase === 'fora' && !!e.mensagem) || e.fase === 'origem');
     if (e.fase === 'feito') $('ts-link').value = '';
-    $('ts-capa-linha').hidden = !e.noAr; $('ts-capa-nota').hidden = !e.noAr;
+    // a capa pelo TrackSave só roda em 127.0.0.1:8770 (friends-capa.js): na publicada o interruptor não aparece
+    $('ts-capa-linha').hidden = !(e.noAr && onde === 'local'); $('ts-capa-nota').hidden = !(e.noAr && onde === 'local');
     if (e.noAr !== noArVisto) { noArVisto = e.noAr; capas.refazer(); capasSeguir.refazer(); }   // o TrackSave ligou/desligou: tenta a capa de novo
   }
   let noArVisto = false;
-  const onde = VbMxTrackSave.ondeEstou(window.location);
-  if (onde !== 'fora') {   // na versão publicada (GitHub Pages) nada disto existe: nem a seção, nem um pedido
+  // na versão publicada (GitHub Pages) o plugin só existe na máquina que abriu uma vez com ?tracksave=1 (lembrado
+  // aqui; ?tracksave=0 desliga). Nas outras, nada disto existe: nem a seção, nem um pedido a 127.0.0.1.
+  const TS_CHAVE = 'vbmx-friends-tracksave';   // '1' | '0'
+  const tsPedido = VbMxTrackSave.pedidoNaUrl(window.location.search);
+  if (tsPedido !== null) gravar(TS_CHAVE, tsPedido);
+  const onde = VbMxTrackSave.liberar(VbMxTrackSave.ondeEstou(window.location), ler(TS_CHAVE, '0') === '1');
+  if (onde !== 'fora') {
     ts = VbMxTrackSave.criarFluxo({
       cliente: VbMxTrackSave.criar({}), onde, aoEstado: desenharTrackSave,
       painel: { adicionar: (p) => painel.adicionar(p), faixas: () => painel.faixas(), ocupado: () => !!VbMxPainel.pastasParaFiltro().ocupado },
