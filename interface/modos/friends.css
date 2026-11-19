@@ -153,6 +153,8 @@ body { overflow-x: clip; }
    No topo da página, logo abaixo do cabeçalho e fora da grade (pedido do Lucas, 19/11/2026: no celular é a primeira
    coisa). Até 34rem campo e botão ocupam a largura toda, um embaixo do outro, com 16 px no campo (o iOS não dá zoom). */
 .fr-tracksave { padding: var(--e-2) var(--e-3); border-bottom: var(--traco) solid var(--papel); min-width: 0; }
+/* lado esquerdo (pedido do Lucas, 19/11/2026): no computador vira um bloco compacto colado à esquerda, no topo; no celular segue na largura toda */
+@media (min-width: 34rem) { .fr-tracksave { width: min(100%, 32rem); box-sizing: border-box; border-right: var(--traco) solid var(--papel); } }
 .fr-ts-linha { display: flex; flex-wrap: wrap; gap: var(--e-1); margin-top: var(--e-1); }
 .fr-ts-linha input { flex: 1 1 100%; width: 100%; box-sizing: border-box; min-width: 0; min-height: 48px; font: inherit; font-size: max(16px, var(--t-sm)); color: var(--fg); background: none; border: var(--traco) solid var(--papel); border-radius: 0; padding: 0 var(--e-1); }
 .fr-ts-linha .fr-botao { flex: 1 1 100%; }
