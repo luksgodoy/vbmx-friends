@@ -1,0 +1,242 @@
+/* Modo Friends (interface/friends.html) — opção C "Noturno / linha do set" de docs/proposta-ui-modos.md.
+   Tokens em modos/bauhaus.css (paleta, traços, escala clamp()); css/base.css e css/pastas.css só dão a base e o painel
+   de pastas. Só círculo, triângulo, quadrado e linha reta: raio de borda zero fora do círculo, sem sombra, sem degradê.
+   Mobile-first: uma coluna a 360 px; 768 px põe a próxima ao lado do agora; 1280 px sobe as listas para o lado. */
+body { overflow-x: clip; }
+.topo { background: var(--preto); border-bottom: var(--traco) solid var(--papel); align-items: center; }
+.marca { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: var(--t-lg); letter-spacing: -0.01em; }
+.marca small { font-size: var(--t-xs); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--fg-2); }
+.trocar-modo { display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--e-2); border: var(--traco) solid var(--papel); border-radius: 0; color: var(--papel); }
+.trocar-modo:hover, .trocar-modo:focus-visible { border-color: var(--amarelo); color: var(--amarelo); }
+.forma { display: inline-block; flex: none; width: 1em; height: 1em; }
+.forma.circulo { border-radius: 50%; background: var(--azul); border: var(--fio) solid var(--papel); }
+.forma.triangulo { background: var(--amarelo); clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.rotulo { font-weight: 600; font-size: var(--t-xs); letter-spacing: .14em; color: var(--fg-2); display: flex; align-items: center; gap: 8px; }
+
+/* painel de pastas (css/pastas.css) na paleta: alvos de 44 px, traço reto */
+.pastas { padding: var(--e-1) var(--e-3); border-bottom: var(--fio) solid var(--cinza); }
+.botao-pasta { min-height: 44px; border: var(--fio) solid var(--papel); border-radius: 0; background: none; color: var(--papel); padding: 0 var(--e-1); font-size: var(--t-sm); }
+.pastas-lista li { border: var(--fio) solid var(--cinza); border-radius: 0; background: none; min-height: 44px; padding: 0 0 0 var(--e-1); font-size: var(--t-xs); }
+.pastas-lista li button { min-width: 44px; min-height: 44px; }
+.pastas-estado { font-size: var(--t-xs); }
+
+/* ---------- a grade (assimétrica: 7:5 a partir de 768 px) ---------- */
+.friends { display: grid; gap: var(--e-3); padding: var(--e-3); max-width: 90rem; margin: 0 auto; width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "trilho" "agora" "seguir" "controles" "aviso" "ts" "listas"; }
+.fr-trilho { grid-area: trilho; } .fr-agora { grid-area: agora; } .fr-seguir { grid-area: seguir; }
+.fr-controles { grid-area: controles; } .fr-aviso { grid-area: aviso; } .fr-tracksave { grid-area: ts; } .fr-listas { grid-area: listas; }
+
+/* a linha do set: já tocou (círculos vazios) · agora (círculo azul) · a seguir (triângulo) · fim */
+.fr-trilho { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 48px; }
+.fr-trilho::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--fio); background: var(--papel); }
+.fr-trilho i { position: relative; flex: none; }
+.fr-trilho .ja { width: 12px; height: 12px; border-radius: 50%; border: var(--fio) solid var(--papel); background: var(--preto); }
+.fr-trilho .ag { width: 40px; height: 40px; border-radius: 50%; background: var(--azul); border: var(--traco) solid var(--papel); }
+.fr-trilho .px { width: 30px; height: 30px; background: var(--amarelo); clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.fr-trilho .fim { width: var(--traco); height: 24px; background: var(--papel); }
+.friends[data-fase="vazio"] .fr-trilho .ag { background: var(--preto); border: var(--fio) dashed var(--cinza-claro); }
+.friends[data-fase="vazio"] .fr-trilho .px { background: var(--cinza); }
+.friends[data-fase="mixando"] .fr-trilho .ag { background: var(--amarelo); }
+
+/* ---------- tocando agora ---------- */
+.fr-agora { position: relative; isolation: isolate; container-type: inline-size; overflow-x: clip; display: grid; gap: var(--e-1); align-content: start; min-width: 0; }
+.fr-titulo { font-family: var(--fonte-display); font-weight: 700; font-size: clamp(2rem, 10cqi, 6rem); line-height: .95; letter-spacing: -0.02em; margin: 0; color: var(--fg); overflow-wrap: anywhere; text-wrap: balance; }
+.fr-sub { font-size: var(--t-sm); color: var(--fg-2); margin: 0; overflow-wrap: anywhere; }
+.fr-onda { display: block; width: 100%; height: clamp(56px, 9vw, 96px); margin-top: var(--e-1); background: transparent; outline: var(--fio) solid var(--cinza); outline-offset: calc(var(--fio) * -1); border-radius: 0; }
+/* o fio: progresso (traço azul + bolinha = busca) e ponto de mixagem (triângulo amarelo = arrastável). --p e --m saem do
+   friends-tela.js. A bolinha e o triângulo desenham 18×12–18 px mas a área de toque é de 44×44 (::before desenha, o próprio
+   elemento recebe o ponteiro); o triângulo fica por cima, a bolinha ocupa o resto da barra. */
+.fr-barra { position: relative; height: 28px; margin-top: var(--e-1); touch-action: pan-y; cursor: pointer; }
+.fr-barra::before { content: ""; position: absolute; left: 0; right: 0; top: 13px; height: var(--fio); background: var(--cinza-claro); }
+.fr-barra span { position: absolute; left: 0; top: 12px; height: var(--traco); width: 0; background: var(--azul-claro); }
+.fr-barra b, .fr-barra i { position: absolute; width: 44px; height: 44px; margin-left: -22px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; cursor: grab; }
+.fr-barra b { left: var(--p, 0%); top: -9px; z-index: 1; }
+.fr-barra b::before { content: ""; position: absolute; left: 13px; top: 13px; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; background: var(--azul); border: var(--fio) solid var(--papel); }
+.fr-barra i { top: -22px; z-index: 2; }
+.fr-barra i::before { content: ""; position: absolute; left: 15px; top: 22px; width: 14px; height: 12px; background: var(--amarelo); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.fr-barra i[hidden] { display: none; }
+.fr-barra [aria-disabled="true"] { cursor: not-allowed; }
+.fr-barra i[aria-disabled="true"]::before { background: var(--cinza-claro); }
+.fr-barra b[aria-disabled="true"]::before { background: var(--preto); border-style: dashed; }
+.fr-barra .arrastando { cursor: grabbing; }
+.fr-barra b:focus-visible, .fr-barra i:focus-visible { outline: var(--traco) solid var(--papel); outline-offset: -6px; }
+.fr-onda[data-busca="1"] { cursor: pointer; touch-action: pan-y; }
+.fr-onda[data-busca="0"] { cursor: default; }
+.fr-barra[data-busca="0"] { cursor: default; }
+.fr-mixponto { min-height: 1.4em; }
+.fr-mixponto b { color: var(--amarelo); font-weight: 600; }
+.fr-tempo { color: var(--fg-2); font-size: var(--t-sm); }
+
+/* ---------- a seguir ---------- */
+.fr-seguir { position: relative; isolation: isolate; display: grid; gap: var(--e-1); align-content: start; padding-top: var(--e-2); border-top: var(--traco) solid var(--papel); min-width: 0; }
+.fr-seguir .rotulo { color: var(--amarelo); }
+.fr-seguir .forma.triangulo { width: .9em; }
+.fr-menor { font-size: var(--t-lg); line-height: 1.1; letter-spacing: 0; }
+.fr-seguir .fr-sub { color: var(--fg); }
+.fr-motivo { color: var(--fg-2); font-size: var(--t-xs); line-height: 1.4; }
+/* o X: tracejado enquanto é plano; cheio, com marcador vermelho, enquanto a mixagem acontece (--x: 0 a 100) */
+.fr-x { position: relative; margin-top: var(--e-1); border: var(--fio) solid var(--cinza-claro); }
+.fr-x svg { display: block; width: 100%; height: 6rem; }
+.fr-x path { fill: none; stroke-width: 3; stroke-dasharray: 6 6; vector-effect: non-scaling-stroke; }
+.fr-x .sai { stroke: var(--azul-claro); } .fr-x .entra { stroke: var(--amarelo); }
+.fr-x-marca { position: absolute; top: 0; bottom: 0; left: calc(20% + var(--x, 0) * 0.6%); width: var(--traco); margin-left: -1.5px; background: var(--vermelho); display: none; }
+.friends[data-fase="mixando"] .fr-x { border-color: var(--papel); }
+.friends[data-fase="mixando"] .fr-x path { stroke-dasharray: none; }
+.friends[data-fase="mixando"] .fr-x-marca { display: block; }
+.friends[data-fase="mixando"] #seguir-quando { color: var(--amarelo); font-weight: 700; }
+
+/* ---------- controles: o quadrado vermelho é a ação ---------- */
+.fr-controles { display: grid; gap: var(--e-1); align-content: start; min-width: 0; }
+.fr-botao { min-height: 48px; padding: 0 var(--e-1); font-family: var(--fonte-display); font-weight: 600; font-size: var(--t-md); letter-spacing: .06em; color: var(--papel); background: none; border: var(--traco) solid var(--papel); border-radius: 0; cursor: pointer; }
+.fr-botao:disabled { border-style: dashed; border-color: var(--cinza-claro); color: var(--cinza-claro); background: none; cursor: default; opacity: 1; }
+.fr-principal { min-height: 56px; background: var(--vermelho); color: var(--branco); border-color: var(--vermelho); min-width: 0; }
+.fr-principal:disabled { background: none; color: var(--cinza-claro); border-color: var(--cinza-claro); }
+.fr-chave, .fr-volume { display: flex; align-items: center; gap: var(--e-1); min-height: 44px; color: var(--fg); font-size: var(--t-sm); }
+.fr-chave input { appearance: none; flex: none; width: 24px; height: 24px; margin: 0; border: var(--traco) solid var(--papel); border-radius: 0; background: none; display: grid; place-content: center; cursor: pointer; }
+.fr-chave input::before { content: ""; width: 10px; height: 10px; background: var(--vermelho); transform: scale(0); }
+.fr-chave input:checked::before { transform: scale(1); }
+.fr-volume input { flex: 1; min-width: 0; height: 44px; accent-color: var(--vermelho); }
+/* duração da transição: cinco quadrados (4/8/16/32/64 compassos) lado a lado, o escolhido em vermelho (alvo ≥ 44 px em qualquer largura) */
+.fr-duracao { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--e-1); align-items: center; min-width: 0; }
+.fr-duracao .rotulo, .fr-duracao-info { grid-column: 1 / -1; }
+.fr-duracao-info { font-size: var(--t-sm); color: var(--fg); overflow-wrap: anywhere; }
+.fr-seg { min-height: 44px; min-width: 0; padding: 0; font-family: var(--fonte-dados); font-weight: 600; font-size: var(--t-sm); color: var(--papel); background: none; border: var(--traco) solid var(--papel); border-radius: 0; cursor: pointer; }
+.fr-seg[aria-checked="true"] { background: var(--vermelho); border-color: var(--vermelho); color: var(--branco); }
+@media (min-width: 34rem) {
+  .fr-controles .fr-duracao { grid-column: 1 / 4; }
+}
+@media (min-width: 34rem) {
+  .fr-controles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fr-controles .fr-chave { grid-column: 1 / 2; } .fr-controles .fr-volume { grid-column: 2 / 4; }
+}
+
+/* ---------- aviso e estados ---------- */
+.fr-aviso { margin: 0; padding: var(--e-1) var(--e-1) var(--e-1) var(--e-2); border-left: var(--traco) solid var(--vermelho); font-size: var(--t-sm); color: var(--papel); overflow-wrap: anywhere; }
+.fr-aviso[hidden] { display: none; }
+.friends[data-fase="vazio"] .fr-agora .fr-titulo { color: var(--cinza-claro); }
+.friends[data-shuffle="0"] #seguir-titulo { color: var(--cinza-claro); }
+
+/* ---------- listas: linhas de 48 px, fio de 1,5 px, marcador por linha ---------- */
+.fr-listas { display: grid; gap: var(--e-3); min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.fr-lista { min-width: 0; }
+.fr-lista ol { list-style: none; margin: var(--e-1) 0 0; padding: 0; max-height: 28rem; overflow-y: auto; }
+.fr-lista li { display: flex; align-items: center; gap: var(--e-1); min-height: 48px; padding: 0; border-bottom: var(--fio) solid var(--cinza); font-size: var(--t-sm); }
+.fr-lista li::before { content: ""; flex: none; width: 14px; height: 14px; border: var(--fio) solid var(--cinza-claro); }
+.fr-lista li.fr-tocando::before { border-radius: 50%; background: var(--azul); border-color: var(--papel); }
+.fr-lista li.fr-seguindo::before { border: 0; background: var(--amarelo); clip-path: polygon(0 0, 100% 50%, 0 100%); }
+#fr-historico li::before { border-radius: 50%; }
+/* fila do DJ: ordem numerada, alvos de 44 px; a lista da fila ocupa a largura toda da faixa */
+.fr-fila { grid-column: 1 / -1; }
+.fr-lista li .botao-pasta { flex: none; white-space: nowrap; }
+/* coluna estreita: o nome não pode sumir debaixo dos botões — a linha quebra e o nome fica com pelo menos 7 rem */
+.fr-lista li { flex-wrap: wrap; }
+.fr-lista li .fr-nome { flex: 1 1 7rem; }
+.fr-fila .rotulo { flex-wrap: wrap; }
+.fr-fila-limpar { margin-left: auto; min-width: 44px; }
+.fr-fila-vazia { margin: var(--e-1) 0 0; color: var(--fg-2); font-size: var(--t-xs); }
+.fr-fila-vazia[hidden] { display: none; }
+.fr-lista .fr-fila-itens li::before { content: none; }
+.fr-pos { flex: none; min-width: 2ch; text-align: right; font-family: var(--fonte-dados); font-size: var(--t-xs); color: var(--amarelo); }
+.fr-lista li .fr-acao { flex: none; min-width: 44px; min-height: 44px; border: var(--fio) solid var(--papel); border-radius: 0; background: none; color: var(--papel); font-size: var(--t-sm); padding: 0 6px; cursor: pointer; }
+.fr-lista li .fr-acao:disabled { opacity: .4; cursor: default; }
+.fr-lista li .fr-acao:focus-visible { outline: var(--traco) solid var(--amarelo); outline-offset: 2px; }
+.fr-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-nome small { color: var(--fg-2); margin-left: 6px; font-size: var(--t-xs); }
+.fr-dado { color: var(--fg-2); font-size: var(--t-xs); white-space: nowrap; }
+.fr-selo { font-family: var(--fonte-dados); font-size: var(--t-xs); color: var(--preto); background: var(--amarelo); border-radius: 0; padding: 2px 6px; white-space: nowrap; }
+.fr-lista li.fr-tocando .fr-selo { background: var(--azul-claro); }
+.fr-selo.fr-fraco { color: var(--cinza-claro); background: none; border: var(--fio) dashed var(--cinza-claro); }
+.fr-marcada .fr-nome { color: var(--papel); font-weight: 700; }
+
+/* ---------- plugin TrackSave (modos/friends-tracksave.js) ---------- */
+.fr-tracksave { padding-top: var(--e-2); border-top: var(--traco) solid var(--papel); min-width: 0; }
+.fr-ts-linha { display: flex; flex-wrap: wrap; gap: var(--e-1); margin-top: var(--e-1); }
+.fr-ts-linha input { flex: 1 1 220px; min-width: 0; min-height: 48px; font: inherit; font-size: var(--t-sm); color: var(--fg); background: none; border: var(--traco) solid var(--papel); border-radius: 0; padding: 0 var(--e-1); }
+.fr-tracksave progress { display: block; width: 100%; height: 8px; margin-top: var(--e-1); accent-color: var(--vermelho); }
+.fr-ts-status { margin: var(--e-1) 0 0; font-size: var(--t-sm); color: var(--fg-2); min-height: 1em; overflow-wrap: anywhere; }
+.fr-ts-status.fr-ts-erro { color: var(--papel); border-left: var(--traco) solid var(--vermelho); padding-left: var(--e-1); }
+.fr-ts-dica { margin: var(--e-1) 0 0; font-size: var(--t-sm); color: var(--fg-2); line-height: 1.6; }
+/* capa ao fundo do "tocando agora": opacidade .6 (era .38) + brilho .8 (era .35) + saturação cheia (era .8): a arte da capa é reconhecível (14/11, o Lucas pediu a capa mais visível).
+   O contraste agora vem de véus LOCAIS, planos chapados (sem blur, sem sombra, sem filter novo) só atrás dos blocos: .78 de preto atrás de rótulo/título/artista/tempos
+   (encolhem ao tamanho do texto) e .72 atrás da onda e da barra (a onda é translúcida e os marcadores azul/amarelo precisam de piso). A capa fica viva nas áreas livres.
+   O pior caso (capa toda branca) é medido nos véus, não no fundo nu (interface/testar-friends-capa.js). Sem animação. */
+:root { --capa-opacidade: .6; --capa-brilho: .8; --capa-veu: .78; --capa-veu-onda: .72; }
+.fr-capa { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; pointer-events: none; user-select: none;
+  opacity: var(--capa-opacidade); filter: brightness(var(--capa-brilho)) saturate(1); }
+.fr-agora > :is(.rotulo, .fr-titulo, .fr-sub, .fr-tempo) { background: rgba(20, 20, 20, var(--capa-veu)); justify-self: start; max-width: 100%; padding: .2em 8px; margin: -.2em -8px; }
+.fr-agora > :is(.fr-onda, .fr-barra) { background: rgba(20, 20, 20, var(--capa-veu-onda)); }
+/* a faixa a seguir leva a capa dela com o MESMO tratamento (mesmas variáveis, mesmos véus): texto sob --capa-veu; X, info e formato da curva sob --capa-veu-onda */
+.fr-seguir > :is(.rotulo, .fr-titulo, .fr-sub, .fr-motivo) { background: rgba(20, 20, 20, var(--capa-veu)); justify-self: start; max-width: 100%; padding: .2em 8px; margin: -.2em -8px; }
+.fr-seguir > :is(.fr-x, .fr-curva-info, .fr-formato) { background: rgba(20, 20, 20, var(--capa-veu-onda)); }
+.fr-ts-capa { margin-top: var(--e-1); }
+.fr-ts-dica code { font-family: var(--fonte-dados); color: var(--fg); background: var(--bg-3); border-radius: 0; padding: 1px 6px; overflow-wrap: anywhere; }
+.fr-ts-dica .botao-pasta { display: inline-flex; align-items: center; }
+.fr-tracksave[hidden], .fr-ts-capa[hidden], .fr-ts-linha[hidden], .fr-ts-dica[hidden], .fr-tracksave progress[hidden] { display: none; }
+
+/* ---------- faixas de largura ---------- */
+@media (min-width: 768px) {
+  .friends { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: start;
+    grid-template-areas: "trilho trilho" "agora seguir" "controles seguir" "aviso aviso" "ts ts" "listas listas"; }
+  .fr-seguir { border-top: 0; padding-top: 0; padding-left: var(--e-3); border-left: var(--traco) solid var(--papel); }
+  .fr-listas { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+}
+@media (min-width: 1280px) {
+  .friends { grid-template-columns: minmax(0, 6fr) minmax(0, 4fr) minmax(0, 4fr);
+    grid-template-areas: "trilho trilho trilho" "agora seguir listas" "controles seguir listas" "aviso aviso listas" "ts ts listas"; }
+  .fr-listas { grid-template-columns: minmax(0, 1fr); }
+  .fr-lista ol { max-height: 22rem; }
+}
+/* movimento: só a transição curta de foco/hover; a onda e o fio andam porque são o progresso, não enfeite */
+@media (prefers-reduced-motion: no-preference) {
+  .fr-botao, .trocar-modo, .fr-chave input::before { transition: background-color .18s, color .18s, border-color .18s, transform .18s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* formato da curva do crossfader: cinco miniaturas em traço reto (sai azul, entra amarelo), o escolhido com borda vermelha */
+.fr-formato { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--e-1); min-width: 0; margin-top: var(--e-1); }   /* 3×2: seis botões em 6 colunas passavam abaixo de 44 px de largura */
+.fr-fmt { min-height: 44px; min-width: 0; padding: 4px; background: none; border: var(--traco) solid var(--papel); border-radius: 0; cursor: pointer; }
+.fr-fmt svg { display: block; width: 100%; height: 100%; min-height: 28px; }
+.fr-fmt path { fill: none; stroke-width: 2; stroke-linejoin: miter; stroke-linecap: butt; vector-effect: non-scaling-stroke; }
+.fr-fmt .sai, .fr-x .sai { stroke: var(--azul-claro); } .fr-fmt .entra, .fr-x .entra { stroke: var(--amarelo); }
+.fr-fmt[aria-checked="true"] { border-color: var(--vermelho); background: rgba(215, 38, 30, 0.18); }
+.fr-fmt:disabled { opacity: .45; cursor: default; }
+
+/* ---------- fundo em mosaico "Compasso" (modos/friends-fundo.js; mockup em docs/mockup-fundo-mosaico.html) ----------
+   Um acento só (azul a 34%) mais neutros, traços finos. Vive atrás de tudo (z-index -1) e SÓ aparece nas calhas: todo bloco
+   tem fundo opaco e 6 px de máscara em volta, então o contraste do texto é o da página sem fundo, em qualquer quadro.
+   A capa do "tocando agora" convive: ela fica dentro do bloco, sobre o fundo opaco dele. Só `transform`, nada de layout. */
+.fr-fundo { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; user-select: none; }
+.fr-fundo .fr-base, .fr-fundo .fr-peca { position: absolute; }
+.fr-fundo .fr-base { inset: 0; }
+.fr-fundo svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.fr-fundo .fr-peca { aspect-ratio: 1; will-change: transform; transform-origin: 50% 50%; }
+.fr-fundo .fr-peca-relogio { left: 52%; top: 6%; width: max(44%, 260px); }
+.fr-fundo .fr-peca-arcos { left: -10%; top: 48%; width: max(40%, 240px); }
+.fr-fundo .fr-peca-tri { left: 30%; top: 30%; width: max(11%, 84px); }
+.fr-fundo .fr-peca-ponto { left: 12%; top: 13%; width: max(6%, 52px); }
+.fr-fundo :is(.tz, .tp, .pz, .pp) { vector-effect: non-scaling-stroke; fill: none; }
+.fr-fundo .tz { stroke: #1f4e9c; stroke-opacity: .34; }
+.fr-fundo .tp { stroke: #f2ebdd; stroke-opacity: .045; }
+.fr-fundo .g3 { stroke-width: 1.5px; }
+.fr-fundo .g1 { stroke-width: 1px; }
+.fr-fundo .pz { fill: #1f4e9c; fill-opacity: .09; }
+.fr-fundo .pp { fill: #f2ebdd; fill-opacity: .022; }
+:is(.pastas, .fr-trilho, .fr-agora, .fr-seguir, .fr-controles, .fr-aviso, .fr-tracksave, .fr-listas) { background: var(--preto); box-shadow: 0 0 0 6px var(--preto); }
+.pastas, .fr-aviso[hidden], .fr-tracksave[hidden] { box-shadow: none; }
+.friends { gap: clamp(1.75rem, 1.1rem + 3vw, 4rem); padding: clamp(1rem, .6rem + 2vw, 2.5rem); }
+@media (max-width: 767px) { .fr-fundo { opacity: .45; } }   /* no celular pode quase sumir */
+@media (prefers-reduced-motion: reduce) { .fr-fundo .fr-peca { will-change: auto; } }
+
+/* pontos de controle da curva personalizada: alvo 44×44, forma Bauhaus (círculo o início, quadrado o fim), traço reto, sem sombra */
+.fr-pt { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; background: none; border: 0; border-radius: 0; cursor: grab; touch-action: none; z-index: 2; display: flex; align-items: center; justify-content: center; }
+.fr-pt i { display: block; width: 16px; height: 16px; box-sizing: border-box; background: var(--papel); border: var(--traco) solid var(--preto, #111); }
+.fr-pt-1 i { border-radius: 50%; }
+.fr-pt-2 i { border-radius: 0; }
+.fr-pt:focus-visible { outline: var(--traco) solid var(--vermelho); outline-offset: -4px; }
+.fr-pt[data-ativo="0"] i { background: none; border-color: var(--papel); }
+.fr-pt[aria-disabled="true"] { cursor: default; opacity: .45; }
+.fr-pt:active { cursor: grabbing; }
+.fr-curva-info { margin-top: var(--e-1); font-family: var(--mono, "JetBrains Mono", monospace); font-size: .75rem; color: var(--cinza-claro); overflow-wrap: anywhere; }

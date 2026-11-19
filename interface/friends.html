@@ -1,0 +1,146 @@
+<meta charset="utf-8">
+<title>VbMx Friends</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<!-- Modo Friends (decisão de 2026-11-13, docs/decisoes.md): shuffle que sugere, toca e mixa sozinho. Página
+     própria, não o classico.html com controles escondidos: aqui não se carrega stems, efeitos, cadeia nem plugin
+     de separação — o caminho de áudio é VbMxTocador → ganho do deck → volume → saída. Sem script nem estilo
+     inline. Teste: node interface/testar-friends.js (e node motor/testar-automix.js para o motor). -->
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pastas.css">
+<link rel="stylesheet" href="modos/bauhaus.css">
+<link rel="stylesheet" href="modos/friends.css">
+<link rel="stylesheet" href="css/idioma.css">
+
+<header class="topo">
+  <div class="marca"><span class="forma circulo" aria-hidden="true"></span>VbMx <small data-i18n="friends.subtitulo">friends · shuffle que mixa sozinho</small></div>
+  <div class="idioma" data-i18n-seletor data-i18n-aria="idioma.rotulo" aria-label="Idioma"></div>
+</header>
+<section class="pastas" id="pastas" aria-label="Pastas da biblioteca" data-i18n-aria="friends.pastas.aria"></section>
+
+<!-- fundo em mosaico "Compasso" (modos/friends-fundo.js): decorativo, só nas calhas — todo bloco tem máscara opaca (friends.css) -->
+<div class="fr-fundo" id="fr-fundo" aria-hidden="true"></div>
+
+<main class="friends" data-fase="vazio">
+  <!-- Opção C "Noturno" (docs/proposta-ui-modos.md): a linha do set, círculo = agora, triângulo = a seguir, quadrado = controle -->
+  <div class="fr-trilho" id="fr-trilho" aria-hidden="true"></div>
+  <p class="so-leitor" id="fr-fase" role="status"></p>
+  <section class="fr-agora" aria-label="Tocando agora" data-i18n-aria="friends.agora.aria">
+    <!-- capa ao fundo (modos/friends-capa.js): decorativa, baixa opacidade e escurecida (friends.css) para o texto e os marcadores mandarem -->
+    <img class="fr-capa" id="agora-capa" alt="" aria-hidden="true" decoding="async" draggable="false">
+    <div class="rotulo" data-i18n="friends.agora.rotulo">Tocando agora</div>
+    <div class="fr-titulo" id="agora-titulo">—</div>
+    <div class="fr-sub" id="agora-sub" data-i18n-js="friends.agora.inicial">adicione uma pasta e aperte Começar</div>
+    <canvas class="fr-onda" id="agora-onda" role="img" aria-label="Forma de onda da faixa: posição e início da mixagem. Clique ou toque para ir a esse ponto" data-i18n-aria="friends.onda.aria"></canvas>
+    <div class="fr-barra" id="agora-fio"><span id="agora-barra"></span><i id="agora-ponto" role="slider" tabindex="0" aria-label="Ponto da mixagem" data-i18n-aria="friends.ponto.aria" aria-orientation="horizontal" aria-disabled="true" hidden></i><b id="agora-bola" role="slider" tabindex="0" aria-label="Posição na faixa" data-i18n-aria="friends.posicao.aria" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-disabled="true"></b></div>
+    <div class="fr-tempo mono" id="agora-tempo"></div>
+    <div class="fr-tempo mono fr-mixponto" id="agora-mixponto"></div>
+  </section>
+
+  <section class="fr-controles" aria-label="Controles" data-i18n-aria="friends.controles.aria">
+    <button type="button" class="fr-botao fr-principal" id="fr-tocar" data-i18n-js="friends.comecar">Começar</button>
+    <button type="button" class="fr-botao" id="fr-mixar" data-i18n="friends.mixar" disabled>Mixar agora</button>
+    <button type="button" class="fr-botao" id="fr-outra" data-i18n="friends.outra" disabled>Outra sugestão</button>
+    <label class="fr-chave"><input type="checkbox" id="fr-shuffle" checked> shuffle</label>
+    <div class="fr-duracao" role="radiogroup" aria-label="Duração da transição automática, em compassos" data-i18n-aria="friends.duracao.aria" id="fr-duracao">
+      <span class="rotulo" data-i18n="friends.duracao.rotulo">transição · compassos</span>
+      <button type="button" role="radio" class="fr-seg" data-c="4" aria-label="4 compassos" data-i18n-aria="friends.compassos.aria" data-i18n-params='{"n":4}' aria-checked="false">4</button>
+      <button type="button" role="radio" class="fr-seg" data-c="8" aria-label="8 compassos" data-i18n-aria="friends.compassos.aria" data-i18n-params='{"n":8}' aria-checked="true">8</button>
+      <button type="button" role="radio" class="fr-seg" data-c="16" aria-label="16 compassos" data-i18n-aria="friends.compassos.aria" data-i18n-params='{"n":16}' aria-checked="false">16</button>
+      <button type="button" role="radio" class="fr-seg" data-c="32" aria-label="32 compassos" data-i18n-aria="friends.compassos.aria" data-i18n-params='{"n":32}' aria-checked="false">32</button>
+      <button type="button" role="radio" class="fr-seg" data-c="64" aria-label="64 compassos" data-i18n-aria="friends.compassos.aria" data-i18n-params='{"n":64}' aria-checked="false">64</button>
+      <span class="fr-duracao-info mono" id="fr-duracao-info" aria-live="polite"></span>
+    </div>
+    <label class="fr-volume"><span class="rotulo" data-i18n="friends.volume.rotulo">volume</span> <input type="range" id="fr-volume" min="0" max="100" step="1" value="80" aria-label="Volume" data-i18n-aria="friends.volume.aria"></label>
+  </section>
+
+  <section class="fr-seguir" aria-label="A seguir" data-i18n-aria="friends.seguir.aria">
+    <!-- capa da faixa a seguir, com o mesmo tratamento do "tocando agora" (friends.css, mesmas variáveis --capa-*) -->
+    <img class="fr-capa" id="seguir-capa" alt="" aria-hidden="true" decoding="async" draggable="false">
+    <div class="rotulo"><span class="forma triangulo" aria-hidden="true"></span><span data-i18n="friends.seguir.rotulo">A seguir</span></div>
+    <div class="fr-titulo fr-menor" id="seguir-titulo">—</div>
+    <div class="fr-sub" id="seguir-quando"></div>
+    <div class="fr-motivo" id="seguir-motivo"></div>
+    <!-- o X do cruzamento: quem sai desce, quem entra sobe; tracejado enquanto é plano, cheio e com marcador quando acontece -->
+    <div class="fr-x" id="fr-x" role="img" aria-label="Plano do cruzamento: a faixa atual desce enquanto a próxima sobe" data-i18n-aria="friends.x.aria">
+      <svg viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true"><path class="sai" d="M0 8 H40 L160 52 H200"/><path class="entra" d="M0 52 H40 L160 8 H200"/></svg>
+      <i class="fr-x-marca"></i>
+      <!-- pontos de controle da curva personalizada (arraste, toque ou setas): início e fim da rampa de quem entra; a de quem sai é o espelho -->
+      <button type="button" class="fr-pt fr-pt-1" id="fr-pt-1" role="slider" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="100" aria-label="Início da rampa" data-i18n-aria="friends.curva.ponto1.aria"><i></i></button>
+      <button type="button" class="fr-pt fr-pt-2" id="fr-pt-2" role="slider" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="100" aria-label="Fim da rampa" data-i18n-aria="friends.curva.ponto2.aria"><i></i></button>
+    </div>
+    <div class="fr-curva-info" id="fr-curva-info" role="status"></div>
+    <!-- formato da curva do crossfader: miniaturas do desenho; vale para a próxima transição, bloqueado durante o cruzamento -->
+    <div class="fr-formato" role="radiogroup" aria-label="Formato da curva do crossfader" data-i18n-aria="friends.formato.aria" id="fr-formato">
+      <button type="button" role="radio" class="fr-fmt" data-f="linear" aria-label="Curva linear" title="linear" data-i18n-aria="friends.formato.linear.aria" data-i18n-title="friends.formato.linear.titulo" aria-checked="true"><svg viewBox="0 0 40 24" aria-hidden="true"><path class="sai"/><path class="entra"/></svg></button>
+      <button type="button" role="radio" class="fr-fmt" data-f="potencia" aria-label="Curva potência constante" title="potência constante" data-i18n-aria="friends.formato.potencia.aria" data-i18n-title="friends.formato.potencia.titulo" aria-checked="false"><svg viewBox="0 0 40 24" aria-hidden="true"><path class="sai"/><path class="entra"/></svg></button>
+      <button type="button" role="radio" class="fr-fmt" data-f="corte-tardio" aria-label="Curva corte tardio" title="corte tardio" data-i18n-aria="friends.formato.corte-tardio.aria" data-i18n-title="friends.formato.corte-tardio.titulo" aria-checked="false"><svg viewBox="0 0 40 24" aria-hidden="true"><path class="sai"/><path class="entra"/></svg></button>
+      <button type="button" role="radio" class="fr-fmt" data-f="corte-cedo" aria-label="Curva corte cedo" title="corte cedo" data-i18n-aria="friends.formato.corte-cedo.aria" data-i18n-title="friends.formato.corte-cedo.titulo" aria-checked="false"><svg viewBox="0 0 40 24" aria-hidden="true"><path class="sai"/><path class="entra"/></svg></button>
+      <button type="button" role="radio" class="fr-fmt" data-f="degrau" aria-label="Curva degrau" title="degrau" data-i18n-aria="friends.formato.degrau.aria" data-i18n-title="friends.formato.degrau.titulo" aria-checked="false"><svg viewBox="0 0 40 24" aria-hidden="true"><path class="sai"/><path class="entra"/></svg></button>
+      <button type="button" role="radio" class="fr-fmt" data-f="personalizado" aria-label="Curva personalizada" title="personalizada" data-i18n-aria="friends.formato.personalizado.aria" data-i18n-title="friends.formato.personalizado.titulo" aria-checked="false"><svg viewBox="0 0 40 24" aria-hidden="true"><path class="sai"/><path class="entra"/></svg></button>
+    </div>
+  </section>
+
+  <p class="fr-aviso" id="fr-aviso" role="status" hidden></p>
+
+  <!-- Plugin TrackSave: só aparece em http://127.0.0.1:8770 e quando o servidor local responde (docs/contratos.md) -->
+  <section class="fr-tracksave" id="fr-ts" aria-label="Trazer do YouTube pelo TrackSave" data-i18n-aria="ts.aria" hidden>
+    <div class="rotulo"><span data-i18n="ts.titulo">Trazer do YouTube</span> <span class="mono">TrackSave</span></div>
+    <form class="fr-ts-linha" id="ts-form" hidden>
+      <input type="url" id="ts-link" placeholder="cole o link de um vídeo do YouTube" aria-label="Link do YouTube" data-i18n-placeholder="ts.link.placeholder" data-i18n-aria="ts.link.aria" autocomplete="off" spellcheck="false" maxlength="2048">
+      <button type="submit" class="fr-botao" id="ts-baixar" data-i18n="ts.trazer">Trazer</button>
+    </form>
+    <label class="fr-chave fr-ts-capa" id="ts-capa-linha" hidden><input type="checkbox" id="ts-capa" checked> <span data-i18n="ts.capa">pesquisar a capa na internet</span></label>
+    <p class="fr-ts-dica" id="ts-capa-nota" data-i18n="ts.privacidade" hidden>Sem capa no arquivo, o título e o artista das faixas que tocam e a seguir saem pela internet, via TrackSave, para achar a capa. Desligue acima para não enviar nada.</p>
+    <progress id="ts-progresso" max="1" hidden></progress>
+    <p class="fr-ts-status" id="ts-status" role="status"></p>
+    <p class="fr-ts-dica" id="ts-dica" hidden><span data-i18n="ts.dica.a">O servidor local do TrackSave não respondeu. Na pasta do TrackSave, rode</span> <code>./tracksave.sh servir</code> <span data-i18n="ts.dica.b">e</span>
+      <button type="button" class="botao-pasta" id="ts-sondar" data-i18n="ts.dica.c">tente de novo</button></p>
+  </section>
+
+  <section class="fr-listas">
+    <div class="fr-lista fr-fila">
+      <div class="rotulo"><span data-i18n="fila.titulo">Fila</span> <span class="mono" id="fila-conta"></span>
+        <button type="button" class="botao-pasta fr-fila-limpar" id="fr-fila-limpar" data-i18n="fila.limpar" hidden>limpar fila</button></div>
+      <ol id="fr-fila" aria-label="Fila" data-i18n-aria="fila.titulo"></ol>
+      <p class="fr-fila-vazia" id="fr-fila-vazia" data-i18n="fila.vazia">Vazia: o shuffle escolhe. Use “+ fila” numa faixa da biblioteca.</p>
+    </div>
+    <div class="fr-lista">
+      <div class="rotulo"><span data-i18n="friends.biblioteca">Biblioteca</span> <span class="mono" id="lista-conta"></span></div>
+      <ol id="fr-biblioteca"></ol>
+    </div>
+    <div class="fr-lista">
+      <div class="rotulo" data-i18n="friends.historico">Já tocou</div>
+      <ol id="fr-historico"></ol>
+    </div>
+  </section>
+</main>
+
+<!-- motor (lógica pura, UMD, testada em Node) — só o que o automix e o tocador usam -->
+<script src="js/i18n.js"></script>
+<script src="js/i18n/pt.js"></script>
+<script src="js/i18n/en.js"></script>
+<script src="js/i18n/es.js"></script>
+<script src="js/i18n/fr.js"></script>
+<script src="js/msg-motor.js"></script>
+<script src="../motor/recomendar.js"></script>
+<script src="../motor/pitch.js"></script>
+<script src="../motor/reproducao.js"></script>
+<script src="../motor/grade.js"></script>
+<script src="../motor/transporte.js"></script>
+<script src="../motor/tom.js"></script>
+<script src="../motor/scratch.js"></script>
+<script src="../motor/automix.js"></script>
+<script src="../motor/waveform.js"></script>
+<script src="../analise/camelot.js"></script>
+<script src="../biblioteca/bpm.js"></script>
+<script src="../biblioteca/biblioteca.js"></script>
+<script src="../biblioteca/painel.js"></script>
+<!-- a página: o tocador de dois decks do Profissional, o controlador e a tela (que é sempre o último) -->
+<script src="js/tocador.js"></script>
+<script src="modos/friends.js"></script>
+<script src="modos/friends-onda.js"></script>
+<script src="modos/friends-tracksave.js"></script>
+<script src="modos/friends-capa.js"></script>
+<script src="modos/friends-fundo.js"></script>
+<script src="modos/friends-tela.js"></script>

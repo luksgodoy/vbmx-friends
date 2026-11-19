@@ -1,0 +1,26 @@
+/* Tokens Kandinsky/Bauhaus (docs/proposta-ui-modos.md § 1, § 4 e § 5), opção C "Noturno" do Friends.
+   Carregado só pelas páginas dos modos (friends.html; o painel index.html pode reusar). NÃO é carregado pelo
+   Profissional (classico.html), que segue com css/base.css. Aqui o tema noturno é único: redefine os tokens de
+   css/base.css para que o painel de pastas (css/pastas.css) também fique na paleta. Contraste: § 5 da proposta. */
+:root {
+  --papel: #F2EBDD; --papel-2: #E3D9C5; --preto: #141414; --branco: #FFFFFF;
+  --vermelho: #D62818; --azul: #1F4E9C; --azul-claro: #6E9BE6; --amarelo: #F2B90F; --cinza: #5A564E; --cinza-claro: #BDB5A4;
+  --traco: 3px; --fio: 1.5px;
+  --t-xs: clamp(0.75rem, 0.72rem + 0.15vw, 0.85rem);
+  --t-sm: clamp(0.875rem, 0.84rem + 0.2vw, 1rem);
+  --t-md: clamp(1rem, 0.95rem + 0.3vw, 1.15rem);
+  --t-lg: clamp(1.35rem, 1.1rem + 1.2vw, 2rem);
+  --e-1: clamp(0.5rem, 0.4rem + 0.4vw, 0.75rem);
+  --e-2: clamp(0.75rem, 0.6rem + 0.8vw, 1.25rem);
+  --e-3: clamp(1rem, 0.7rem + 1.6vw, 2rem);
+  /* os tokens de base.css, redefinidos na paleta (um tema só: preto) */
+  --bg: var(--preto); --bg-2: var(--preto); --bg-3: #26231e; --linha: var(--cinza);
+  --fg: var(--papel); --fg-2: var(--cinza-claro); --fg-3: #A39C89;
+  --acento: var(--amarelo); --ok: var(--amarelo); --aviso: var(--papel);
+  --fonte-display: "Jost", "Futura", "Century Gothic", "Avenir Next", "Trebuchet MS", sans-serif;
+  --fonte-texto: "Jost", "Futura", "Century Gothic", "Avenir Next", "Trebuchet MS", sans-serif;
+}
+body { font-weight: 500; }
+:focus-visible { outline: var(--traco) solid var(--amarelo); outline-offset: 3px; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: var(--traco) solid var(--amarelo); outline-offset: 3px; }
+.so-leitor { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

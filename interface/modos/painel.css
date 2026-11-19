@@ -1,0 +1,62 @@
+/* Painel de modos (interface/index.html), opção A "Composição" (docs/proposta-ui-modos.md § 2; mockup docs/mockup-modos-bauhaus.html).
+   Tokens de modos/bauhaus.css (carregado antes). Aqui a tela é de PAPEL: redefine os tokens de base.css para tinta sobre papel
+   (o Friends é noturno; o painel é a abertura). Decoração só com formas e fio; o texto fica sobre fundo de papel. */
+:root { --bg: var(--papel); --bg-2: var(--papel); --bg-3: var(--papel-2); --fg: var(--preto); --fg-2: var(--cinza); --fg-3: var(--cinza);
+  --linha: var(--preto); --e-4: clamp(1.5rem, 1rem + 3vw, 4rem); --t-xl: clamp(2rem, 1.3rem + 3.4vw, 4rem); --acento: var(--preto); --fonte-dados: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+body { background: var(--papel); color: var(--preto); }
+.modos :focus-visible, .modos a:focus-visible, .modos input:focus-visible { outline: var(--traco) solid var(--preto); outline-offset: 3px; }
+.modos { position: relative; overflow: clip; min-height: 100dvh; display: grid; align-content: center; gap: var(--e-3);
+  width: 100%; max-width: 90rem; margin: 0 auto; padding: var(--e-4) var(--e-3); }
+.modos > * { position: relative; min-width: 0; }
+.modos > .modos-deco { position: absolute; inset: 0; pointer-events: none; }
+.modos-deco i { position: absolute; display: block; }
+.modos-deco .l1 { left: -10%; top: 8%; width: 120%; height: var(--traco); background: var(--preto); transform: rotate(-14deg); }
+.modos-deco .l2 { right: 12%; top: -10%; width: var(--fio); height: 130%; background: var(--preto); transform: rotate(24deg); }
+.modos-deco .tri { right: 6%; top: 5%; width: clamp(2.5rem, 9vw, 7rem); aspect-ratio: 1; background: var(--amarelo); clip-path: polygon(50% 0, 100% 100%, 0 100%); transform: rotate(18deg); }
+.modos-deco .arco { left: -4rem; bottom: -4rem; width: clamp(8rem, 22vw, 18rem); aspect-ratio: 1; border-radius: 50%; border: var(--traco) solid var(--preto); }
+.modos .idioma { justify-self: end; align-self: start; background: var(--papel); border-color: var(--preto); }
+.modos .idioma-opcao + .idioma-opcao { border-left-color: var(--preto); }
+.modos .idioma-opcao { color: var(--preto); }
+.modos .idioma-opcao[aria-checked="true"] { background: var(--preto); color: var(--papel); }
+.modos-marca { font-family: var(--fonte-display); font-size: clamp(3.25rem, 1.6rem + 7.5vw, 8.5rem); line-height: .9; font-weight: 700; letter-spacing: -.02em; margin: 0; color: var(--preto); overflow-wrap: anywhere; }
+.modos-marca small { display: block; margin-top: .6em; font-size: var(--t-md); font-weight: 500; letter-spacing: 0; line-height: 1.3; }
+.modos-opcoes { display: grid; gap: var(--e-3); }
+.modo-caixa { container-type: inline-size; }
+.modo { display: grid; grid-template-columns: clamp(4.5rem, 24cqi, 7rem) minmax(0, 1fr); gap: var(--e-2); align-items: center; padding: var(--e-2);
+  text-decoration: none; color: var(--preto); background: var(--papel); border: var(--traco) solid var(--preto); min-height: 44px; }
+.forma { display: block; flex: none; aspect-ratio: 1; }
+.forma.circulo { border-radius: 50%; background: var(--azul); }
+.forma.quadrado { background: var(--vermelho); }
+.modo-corpo { display: block; min-width: 0; }
+.modo-nome { display: block; font-family: var(--fonte-display); font-size: var(--t-lg); font-weight: 700; line-height: 1.1; }
+.modo-texto { display: block; font-size: var(--t-sm); line-height: 1.4; color: var(--preto); }
+.modo-tags { display: block; margin-top: 8px; font-size: var(--t-xs); line-height: 1.3; color: var(--cinza); }
+.modo.lembrado { box-shadow: 8px 8px 0 var(--preto); }
+.modo.lembrado::after { content: attr(data-ultimo); grid-column: 2; justify-self: start; font: 600 .6875rem/1 var(--fonte-dados); letter-spacing: .04em;
+  padding: 3px 6px; border: var(--fio) solid var(--preto); background: var(--papel); white-space: nowrap; }
+.modos-rodape { display: grid; gap: 4px; margin: 0; justify-self: start; background: var(--papel); font-size: var(--t-sm); }
+.modos-dica { color: var(--cinza); font-size: var(--t-xs); max-width: 60ch; }
+.opcao { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; font-size: var(--t-sm); color: var(--preto); }
+.opcao input { appearance: none; -webkit-appearance: none; flex: none; width: 24px; height: 24px; margin: 0; border: var(--traco) solid var(--preto); background: transparent; cursor: pointer; }
+.opcao input:checked { background: linear-gradient(var(--preto), var(--preto)) center / 10px 10px no-repeat; }
+@media (prefers-reduced-motion: no-preference) {
+  .modo, .forma { transition: transform .18s ease, background-color .18s ease; }
+  .modo:hover .forma, .modo:focus-visible .forma { transform: rotate(12deg) scale(1.06); }
+}
+@media (min-width: 768px) {
+  .modos-opcoes { grid-template-columns: 5fr 7fr; align-items: start; }
+  .modo-caixa:last-child { margin-top: var(--e-4); }   /* assimetria: o segundo desce */
+  /* com espaço, a moldura some e a forma vira o próprio botão; o tamanho dela segue a coluna (cqi) */
+  .modo { grid-template-columns: 1fr; align-items: start; border-color: transparent; background: transparent; }
+  .modo-corpo { background: var(--papel); justify-self: start; }
+  .modo.lembrado::after { grid-column: 1; }
+  .modo .forma { width: min(62cqi, 17rem); }
+  .modo.lembrado { box-shadow: none; }
+  .modo.lembrado .forma { box-shadow: 10px 10px 0 var(--preto); }
+  .modo-nome { font-size: var(--t-xl); }
+}
+@media (min-width: 1280px) {
+  .modos { grid-template-columns: 4fr 8fr; grid-template-areas: "idioma idioma" "marca modos" "rodape modos"; column-gap: var(--e-4); }
+  .modos .idioma { grid-area: idioma; } .modos-marca { grid-area: marca; align-self: end; }
+  .modos-opcoes { grid-area: modos; } .modos-rodape { grid-area: rodape; align-self: start; }
+}
